@@ -1,0 +1,28 @@
+# Cloned upstream
+llama.cpp/
+
+# Local build outputs
+build/
+build_ios/
+build-apple/
+build-ios-*/
+build-macos/
+build-visionos*/
+build-tvos*/
+*.xcframework
+
+# Models (too big for git)
+*.gguf
+
+# Xcode
+.DS_Store
+xcuserdata/
+*.xcuserstate
+
+# Backups from patch operations
+*.orig
+*.bak
+
+# Editor
+.vscode/
+.idea/
