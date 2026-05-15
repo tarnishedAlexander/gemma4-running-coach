@@ -41,6 +41,8 @@ targets:
           UIColorName: AccentColor
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
+        UIBackgroundModes:
+          - audio
         UIRequiredDeviceCapabilities:
           - arm64
         UISupportedInterfaceOrientations:

@@ -12,6 +12,8 @@ struct ContentView: View {
     @State private var pickedThumb: UIImage? = nil
     @StateObject private var audioRecorder = AudioRecorder()
     @State private var pendingAudioData: Data? = nil
+    @StateObject private var speaker = CoachSpeaker()
+    @StateObject private var liveSession = LiveSession()
 
     var body: some View {
         NavigationStack {
@@ -24,11 +26,15 @@ struct ContentView: View {
                     runButtons
                     metricsCard
                     outputCard
+                    liveCard
                 }
                 .padding()
             }
             .navigationTitle("Gemma Coach")
-            .task { await engine.loadIfNeeded() }
+            .task {
+                liveSession.attach(engine: engine, speaker: speaker)
+                await engine.loadIfNeeded()
+            }
         }
     }
 
@@ -162,6 +168,50 @@ struct ContentView: View {
         }
     }
 
+    private var liveCard: some View {
+        GroupBox("Live coaching mode") {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Toggle(isOn: Binding(
+                        get: { liveSession.isRunning },
+                        set: { newVal in newVal ? liveSession.start() : liveSession.stop() }
+                    )) {
+                        Label(liveSession.isRunning ? "Live" : "Off",
+                              systemImage: liveSession.isRunning ? "dot.radiowaves.left.and.right" : "circle")
+                    }
+                    .toggleStyle(.switch)
+                    .tint(.red)
+                    Spacer()
+                    if liveSession.isRunning {
+                        Image(systemName: speaker.isSpeaking ? "speaker.wave.3.fill" : "speaker")
+                            .foregroundStyle(speaker.isSpeaking ? Color.accentColor : .secondary)
+                    }
+                }
+
+                VStack(alignment: .leading) {
+                    Text("Trigger every \(Int(liveSession.periodSeconds))s")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Slider(value: $liveSession.periodSeconds, in: 5...60, step: 1)
+                        .disabled(liveSession.isRunning)
+                }
+
+                if liveSession.isRunning || liveSession.triggerCount > 0 {
+                    HStack(spacing: 12) {
+                        metric("Triggers", "\(liveSession.triggerCount)")
+                        metric("Last decode", String(format: "%.1f tok/s", liveSession.lastFinishedDecodeTokensPerSecond))
+                        if let t = liveSession.lastTriggerAt {
+                            metric("Since last", String(format: "%.1f s", Date().timeIntervalSince(t)))
+                        }
+                    }
+                }
+
+                if let err = liveSession.lastError {
+                    Text(err).font(.caption2).foregroundStyle(.red)
+                }
+            }
+        }
+    }
+
     private var outputCard: some View {
         GroupBox("Output") {
             Text(engine.output.isEmpty ? "—" : engine.output)
@@ -171,11 +221,7 @@ struct ContentView: View {
         }
     }
 
-    private var isReady: Bool {
-        if case .ready = engine.status { return true }
-        if case .generating = engine.status { return false }
-        return false
-    }
+    private var isReady: Bool { engine.isReady && !liveSession.isRunning }
 
     private func handlePicked() {
         guard let item = pickedItem else { return }

@@ -24,6 +24,12 @@ final class EngineModel: ObservableObject {
 
     private var engine: LiteRTLMEngine? = nil
 
+    var isReady: Bool {
+        if case .ready = status { return true }
+        if case .generating = status { return true }  // ok to fire next while last still streaming; we cancel
+        return false
+    }
+
     /// Download Gemma 4 E2B (~2.6 GB) and load the engine.
     /// Idempotent — safe to call multiple times.
     func loadIfNeeded() async {
@@ -85,6 +91,41 @@ final class EngineModel: ObservableObject {
         await run {
             try await engine.multimodal(audioData: audioData, audioFormat: .wav,
                                         imagesData: imagesData, prompt: prompt, maxTokens: maxTokens)
+        }
+    }
+
+    /// Streaming text generation that calls a chunk handler per token batch.
+    /// Used by LiveSession for live mode TTS pipeline.
+    func streamCoach(prompt: String, onChunk: @MainActor @escaping (String) -> Void) async {
+        guard let engine else { status = .error("engine not loaded"); return }
+        let formatted = "<|turn>user\n\(prompt)\n<turn|>\n<|turn>model\n"
+        status = .generating
+        output = ""
+        let start = Date()
+        var firstTok: Date? = nil
+        var totalChars = 0
+        do {
+            let stream = try await engine.generateStreaming(prompt: formatted, maxTokens: 80)
+            for try await chunk in stream {
+                if Task.isCancelled { break }
+                if firstTok == nil { firstTok = Date() }
+                output += chunk
+                totalChars += chunk.count
+                onChunk(chunk)
+            }
+            let end = Date()
+            let total = end.timeIntervalSince(start)
+            let ttft = firstTok?.timeIntervalSince(start) ?? 0
+            let decodeT = end.timeIntervalSince(firstTok ?? start)
+            let approxTok = max(1, totalChars / 4)
+            lastTimeToFirstToken = ttft
+            lastTotalTime = total
+            lastDecodeTokensPerSecond = Double(approxTok) / max(decodeT, 0.001)
+            status = .ready
+        } catch is CancellationError {
+            status = .ready
+        } catch {
+            status = .error("\(error)")
         }
     }
 
