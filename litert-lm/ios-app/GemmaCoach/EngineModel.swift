@@ -74,15 +74,15 @@ final class EngineModel: ObservableObject {
             // Conformer; GPU dispatch overhead would likely cancel any
             // theoretical GPU speedup for that specific workload anyway).
             status = .loading
-            let e: LiteRTLMEngine
+            var e: LiteRTLMEngine
             do {
                 e = LiteRTLMEngine(modelPath: downloader.modelPath, backend: "cpu")
                 try await e.load()
             } catch {
                 // Fallback: retry with default-arg init in case a future
                 // package version stops accepting the explicit "cpu" string
-                // or introduces a different default. Surfaces the original
-                // error if both fail.
+                // or changes the default. Surfaces the original error if
+                // both fail.
                 e = LiteRTLMEngine(modelPath: downloader.modelPath)
                 try await e.load()
             }
