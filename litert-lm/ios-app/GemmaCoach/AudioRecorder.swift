@@ -15,14 +15,10 @@ final class AudioRecorder: NSObject, ObservableObject {
     private(set) var lastRecordingURL: URL?
 
     func requestPermissionIfNeeded() async -> Bool {
-        let session = AVAudioSession.sharedInstance()
-        if session.recordPermission == .granted { return true }
-        return await withCheckedContinuation { continuation in
-            session.requestRecordPermission { granted in
-                Task { @MainActor in self.permissionDenied = !granted }
-                continuation.resume(returning: granted)
-            }
-        }
+        if AVAudioApplication.shared.recordPermission == .granted { return true }
+        let granted = await AVAudioApplication.requestRecordPermission()
+        await MainActor.run { self.permissionDenied = !granted }
+        return granted
     }
 
     func startRecording() async throws {
@@ -32,7 +28,7 @@ final class AudioRecorder: NSObject, ObservableObject {
         }
 
         let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.playAndRecord, mode: .measurement, options: [.defaultToSpeaker, .allowBluetooth])
+        try session.setCategory(.playAndRecord, mode: .measurement, options: [.defaultToSpeaker, .allowBluetoothHFP])
         try session.setActive(true)
 
         let url = FileManager.default.temporaryDirectory

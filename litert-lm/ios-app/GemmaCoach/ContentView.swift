@@ -33,7 +33,6 @@ struct ContentView: View {
             .navigationTitle("Gemma Coach")
             .task {
                 liveSession.attach(engine: engine, speaker: speaker)
-                await engine.loadIfNeeded()
             }
         }
     }
@@ -41,16 +40,54 @@ struct ContentView: View {
     private var statusCard: some View {
         GroupBox {
             switch engine.status {
-            case .idle: Text("Idle").foregroundStyle(.secondary)
-            case .downloading(let p):
-                VStack(alignment: .leading) {
-                    Text("Downloading model… \(Int(p * 100))%").font(.caption)
-                    ProgressView(value: p)
+            case .idle:
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Gemma 4 E2B (~5.4 GB) is not loaded.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Button {
+                        Task { await engine.loadIfNeeded() }
+                    } label: {
+                        Label("Download & Load Model", systemImage: "arrow.down.circle.fill")
+                    }
+                    .buttonStyle(.borderedProminent)
                 }
-            case .loading: ProgressView("Loading engine…")
+            case .downloading(let p):
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("Downloading Gemma 4 E2B")
+                        Spacer()
+                        Text("\(Int(p * 100))%")
+                            .monospacedDigit()
+                    }
+                    .font(.caption.weight(.medium))
+                    ProgressView(value: max(p, 0.005), total: 1.0)
+                    if !engine.loadingMessage.isEmpty {
+                        Text(engine.loadingMessage)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                }
+            case .loading:
+                VStack(alignment: .leading, spacing: 6) {
+                    ProgressView()
+                    if !engine.loadingMessage.isEmpty {
+                        Text(engine.loadingMessage)
+                            .font(.caption).foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    } else {
+                        Text("Loading model — this may take a few minutes…")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
             case .ready: Label("Ready", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
             case .generating: ProgressView("Generating…")
-            case .error(let msg): Label(msg, systemImage: "xmark.octagon.fill").foregroundStyle(.red).font(.caption)
+            case .error(let msg):
+                VStack(alignment: .leading, spacing: 8) {
+                    Label(msg, systemImage: "xmark.octagon.fill").foregroundStyle(.red).font(.caption)
+                    Button("Retry") { Task { await engine.loadIfNeeded() } }
+                        .buttonStyle(.bordered)
+                }
             }
         }
     }

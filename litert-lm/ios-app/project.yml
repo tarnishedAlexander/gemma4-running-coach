@@ -2,29 +2,29 @@ name: GemmaCoach
 options:
   bundleIdPrefix: com.gemma4.runningcoach
   deploymentTarget:
-    iOS: "17.0"
+    iOS: "18.0"
   developmentLanguage: en
   createIntermediateGroups: true
 
 settings:
   base:
     SWIFT_VERSION: "5.9"
-    IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "18.0"
     GENERATE_INFOPLIST_FILE: NO
     ENABLE_USER_SCRIPT_SANDBOXING: NO
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
 
 packages:
-  LiteRTLMSwift:
-    url: https://github.com/mylovelycodes/LiteRTLM-Swift.git
-    branch: main
+  CoreMLLLM:
+    url: https://github.com/john-rocky/CoreML-LLM.git
+    from: "1.9.0"
 
 targets:
   GemmaCoach:
     type: application
     platform: iOS
-    deploymentTarget: "17.0"
+    deploymentTarget: "18.0"
     sources:
       - path: GemmaCoach
         excludes:
@@ -64,5 +64,5 @@ targets:
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         DEVELOPMENT_ASSET_PATHS: '"GemmaCoach/Preview Content"'
     dependencies:
-      - package: LiteRTLMSwift
-        product: LiteRTLMSwift
+      - package: CoreMLLLM
+        product: CoreMLLLM
