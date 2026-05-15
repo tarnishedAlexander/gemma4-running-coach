@@ -4,6 +4,7 @@ llama.cpp/
 # Local build outputs
 build/
 build_ios/
+build_sim/
 build-apple/
 build-ios-*/
 build-macos/

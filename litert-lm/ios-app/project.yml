@@ -63,6 +63,32 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         DEVELOPMENT_ASSET_PATHS: '"GemmaCoach/Preview Content"'
+        # Include @executable_path/Frameworks so dyld finds the manually-embedded
+        # CLiteRTLM.framework at runtime (the postBuildScript copies it there;
+        # XcodeGen+SPM only sets PackageFrameworks paths by default, which don't
+        # exist at runtime).
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks @loader_path/Frameworks"
     dependencies:
       - package: LiteRTLMSwift
         product: LiteRTLMSwift
+    postBuildScripts:
+      - name: "Embed CLiteRTLM.framework into app bundle"
+        script: |
+          set -e
+          XCFRAMEWORK="${BUILT_PRODUCTS_DIR}/../../SourcePackages/checkouts/LiteRTLM-Swift/Frameworks/LiteRTLM.xcframework"
+          if [ ! -d "$XCFRAMEWORK" ]; then
+            echo "warning: CLiteRTLM xcframework not found at $XCFRAMEWORK; skipping copy"
+            exit 0
+          fi
+          # Pick the slice matching the current build platform.
+          if [ "${PLATFORM_NAME}" = "iphonesimulator" ]; then
+            SLICE="${XCFRAMEWORK}/ios-arm64-simulator"
+            [ -d "$SLICE" ] || SLICE="${XCFRAMEWORK}/ios-arm64_x86_64-simulator"
+          else
+            SLICE="${XCFRAMEWORK}/ios-arm64"
+          fi
+          DEST="${TARGET_BUILD_DIR}/${PRODUCT_NAME}.app/Frameworks"
+          mkdir -p "$DEST"
+          rm -rf "$DEST/CLiteRTLM.framework"
+          cp -R "$SLICE/CLiteRTLM.framework" "$DEST/"
+          echo "embedded CLiteRTLM.framework from $SLICE"
