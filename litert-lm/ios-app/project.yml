@@ -17,8 +17,11 @@ settings:
 
 packages:
   LiteRTLMSwift:
-    url: https://github.com/mylovelycodes/LiteRTLM-Swift.git
-    branch: main
+    # Vendored local fork pointing at PR #11 branch which fixes
+    # litert_lm_engine_settings_create returning NULL by passing
+    # nil for vision/audio backends when the caller hasn't opted in.
+    # Upstream PR: https://github.com/mylovelycodes/LiteRTLM-Swift/pull/11
+    path: ../../../LiteRTLM-Swift-fork
 
 targets:
   GemmaCoach:

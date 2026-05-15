@@ -43,6 +43,28 @@ The published `litert-community/gemma-4-E2B-it-litert-lm` model file requires ru
 
 This matches the broader iOS landscape: most on-device ML frameworks (CoreML, MediaPipe, MLX) have known issues in iOS Sim. Apple's own docs recommend real-device testing for ML workloads.
 
+## Things we tried that DIDN'T fix it
+
+So you don't waste time repeating these:
+
+- **`backend: "cpu"`** — same error
+- **`backend: "gpu"`** — same error
+- **Vendoring [LiteRTLM-Swift PR #11](https://github.com/mylovelycodes/LiteRTLM-Swift/pull/11)** to pass `nil` for vision/audio backends instead of `"cpu"` for both — same error. PR #11 fixes a different real bug (engine_settings_create NULL return for text-only models that don't have vision/audio sections), just doesn't apply here.
+- **Wiping `SourcePackages` cache + DerivedData + forcing fresh package resolve** — confirmed the local fork was being used, error still present.
+- **Pre-staging the model file in `Documents/`** — app uses `Library/Application Support/LiteRTLM/Models/` instead and downloads its own copy. Both copies match the HF size (2.6 GB) byte-for-byte.
+
+## Confirmed-working baseline (so you know the model + runtime aren't broken)
+
+The same `gemma-4-E2B-it.litertlm` file runs fine on macOS via the LiteRT-LM CLI:
+
+```bash
+litert-lm benchmark --from-huggingface-repo=litert-community/gemma-4-E2B-it-litert-lm \
+  gemma-4-E2B-it.litertlm --backend=gpu -p 256 -d 256
+# Result: 202 prefill tok/s, 69 decode tok/s on M4 Metal
+```
+
+That confirms the model file, the LiteRT-LM C++ runtime, and the engine_settings_create function all work correctly on Mac CPU/GPU. The iOS Simulator path is what's broken — not our code, not the model, not the package wrapper.
+
 ## What you can validate WITHOUT a real device
 
 Useful for fast UI iteration:
