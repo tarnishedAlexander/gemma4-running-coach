@@ -48,7 +48,9 @@ open llama.cpp/examples/llama.swiftui/llama.swiftui.xcodeproj
 
 Each subdirectory has its own README with deploy details, prerequisites, and troubleshooting.
 
-### Model sources (linked, downloaded automatically by apply.sh)
+### Model files
+
+Model weights are **not in git** (would exceed GitHub's 100 MB per-file limit). They're downloaded from Hugging Face — either automatically by `apply.sh`, or manually with the commands below.
 
 | | Source repo | File | Size |
 |---|---|---|---|
@@ -56,7 +58,41 @@ Each subdirectory has its own README with deploy details, prerequisites, and tro
 | llama.cpp text model | [`unsloth/gemma-4-E2B-it-GGUF`](https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF) | `gemma-4-E2B-it-Q4_K_M.gguf` | 2.9 GB |
 | llama.cpp vision projector | same repo | `mmproj-F16.gguf` | 940 MB |
 
-You don't have to download these manually — `apply.sh` for each path handles it. Linked here so you know what's being pulled.
+**Total disk if you build both paths:** ~6.5 GB models + ~500 MB cloned llama.cpp source + ~5 GB Xcode build artifacts.
+
+#### Manual download commands
+
+If you'd rather pull models yourself (or `apply.sh` fails behind a proxy), these are the exact commands:
+
+**LiteRT-LM model — for `litert-lm/`.** The iOS app downloads this on first launch via the bundled `ModelDownloader`, so manual download is only needed if you want to pre-stage on the device sandbox or test the macOS LiteRT-LM CLI:
+
+```bash
+mkdir -p ~/work/evan/gemma_models
+curl -L -o ~/work/evan/gemma_models/gemma-4-E2B-it.litertlm \
+  https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm
+```
+
+**llama.cpp models — for `llama-cpp/`.** These get bundled INTO the iOS app at build time, so they must sit in `Resources/models/` BEFORE `xcodebuild` runs. Run from inside `llama-cpp/` after `apply.sh` step 1 (cloning llama.cpp) has happened:
+
+```bash
+TARGET_DIR=llama.cpp/examples/llama.swiftui/llama.swiftui/Resources/models
+mkdir -p "$TARGET_DIR"
+
+curl -L -o "$TARGET_DIR/gemma-4-E2B-it-Q4_K_M.gguf" \
+  https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-Q4_K_M.gguf
+
+curl -L -o "$TARGET_DIR/mmproj-F16.gguf" \
+  https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/mmproj-F16.gguf
+```
+
+Verify file sizes after download:
+
+```bash
+ls -lh ~/work/evan/gemma_models/*.litertlm
+ls -lh llama-cpp/llama.cpp/examples/llama.swiftui/llama.swiftui/Resources/models/*.gguf
+```
+
+Expect: 2.6 GB litertlm, 2.9 GB Q4_K_M, 940 MB mmproj. If anything is shorter, the download failed mid-stream — re-run the `curl`.
 
 ### Source repositories used (linked from per-path scripts)
 

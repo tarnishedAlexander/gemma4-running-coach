@@ -34,6 +34,23 @@ litert-lm/
     └── build.sh                              # xcodebuild wrapper
 ```
 
+## Model file
+
+The 2.6 GB Gemma 4 E2B `.litertlm` model is **not in git** (exceeds GitHub's 100 MB per-file limit) and is **downloaded by the iOS app on first launch** via the bundled `ModelDownloader` (target: app's `Documents/` directory).
+
+If you want to pre-stage it (e.g. to test the macOS LiteRT-LM CLI, or to seed an iOS Sim sandbox before launch):
+
+```bash
+mkdir -p ~/work/evan/gemma_models
+curl -L -o ~/work/evan/gemma_models/gemma-4-E2B-it.litertlm \
+  https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm
+```
+
+Verify size after download — must be ~2.6 GB:
+```bash
+ls -lh ~/work/evan/gemma_models/gemma-4-E2B-it.litertlm
+```
+
 ## Build
 
 Requires Xcode 16+ and [XcodeGen](https://github.com/yonaskolb/XcodeGen). The repo includes a prebuilt XcodeGen binary in the apply.sh script (downloaded on demand if missing).

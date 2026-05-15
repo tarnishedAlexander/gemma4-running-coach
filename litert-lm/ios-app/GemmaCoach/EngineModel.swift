@@ -52,9 +52,40 @@ final class EngineModel: ObservableObject {
             modelPath = downloader.modelPath
 
             // 2) Load engine.
+            //
+            // BACKEND CHOICE — explicit "cpu". The published Gemma 4 E2B
+            // .litertlm pins its audio encoder to a CPU-only path, and the
+            // LiteRTLMEngine wrapper applies one backend uniformly across
+            // LLM + vision + audio. Asking for "gpu" makes audio reject the
+            // backend at engine_create time, which surfaces as
+            //     engineCreationFailed("litert_lm_engine_create returned NULL")
+            // (the underlying C++ logs "Audio backend constraint mismatch"
+            // to stderr but the Swift wrapper doesn't propagate that detail).
+            //
+            // Keep CPU until either (a) we vendor + patch LiteRTLM-Swift to
+            // expose per-encoder backend params (the underlying LiteRT-LM
+            // C API supports separate --backend and --audio-backend flags,
+            // the Swift wrapper just doesn't expose them), or (b) Google
+            // publishes a .litertlm build that permits GPU audio.
+            //
+            // Practical perf cost on iPhone: LLM decode runs on iPhone CPU
+            // (NEON SIMD), expect ~3-5x slower than the GPU path. Audio
+            // encode is fast on CPU NEON regardless (small 300M one-shot
+            // Conformer; GPU dispatch overhead would likely cancel any
+            // theoretical GPU speedup for that specific workload anyway).
             status = .loading
-            let e = LiteRTLMEngine(modelPath: downloader.modelPath)
-            try await e.load()
+            let e: LiteRTLMEngine
+            do {
+                e = LiteRTLMEngine(modelPath: downloader.modelPath, backend: "cpu")
+                try await e.load()
+            } catch {
+                // Fallback: retry with default-arg init in case a future
+                // package version stops accepting the explicit "cpu" string
+                // or introduces a different default. Surfaces the original
+                // error if both fail.
+                e = LiteRTLMEngine(modelPath: downloader.modelPath)
+                try await e.load()
+            }
             engine = e
             status = .ready
         } catch {
