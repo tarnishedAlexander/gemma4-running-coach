@@ -46,6 +46,7 @@ targets:
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         NSPhotoLibraryUsageDescription: Pick a photo to ask Gemma 4 about.
+        NSMicrophoneUsageDescription: Record voice prompts for Gemma 4 coaching.
     entitlements:
       path: GemmaCoach/GemmaCoach.entitlements
       properties:

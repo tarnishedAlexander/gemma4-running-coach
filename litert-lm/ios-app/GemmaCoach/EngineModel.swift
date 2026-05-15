@@ -71,6 +71,23 @@ final class EngineModel: ObservableObject {
         }
     }
 
+    /// Audio understanding: transcribe / summarize / coach on an audio clip.
+    func generateAudio(audioData: Data, prompt: String, maxTokens: Int = 512) async {
+        guard let engine else { status = .error("engine not loaded"); return }
+        await run {
+            try await engine.audio(audioData: audioData, prompt: prompt, format: .wav, maxTokens: maxTokens)
+        }
+    }
+
+    /// Multimodal: image(s) + audio + text in one call.
+    func generateMultimodal(audioData: [Data], imagesData: [Data], prompt: String, maxTokens: Int = 1024) async {
+        guard let engine else { status = .error("engine not loaded"); return }
+        await run {
+            try await engine.multimodal(audioData: audioData, audioFormat: .wav,
+                                        imagesData: imagesData, prompt: prompt, maxTokens: maxTokens)
+        }
+    }
+
     /// Single-shot (non-streaming) wrapper that times TTFT from start of generation.
     private func run(_ work: () async throws -> String) async {
         status = .generating

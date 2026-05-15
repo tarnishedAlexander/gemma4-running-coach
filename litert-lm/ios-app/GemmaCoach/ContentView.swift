@@ -10,6 +10,8 @@ struct ContentView: View {
     @State private var pickedItem: PhotosPickerItem? = nil
     @State private var pickedImageData: Data? = nil
     @State private var pickedThumb: UIImage? = nil
+    @StateObject private var audioRecorder = AudioRecorder()
+    @State private var pendingAudioData: Data? = nil
 
     var body: some View {
         NavigationStack {
@@ -18,6 +20,7 @@ struct ContentView: View {
                     statusCard
                     promptEditor
                     imagePickerRow
+                    audioRow
                     runButtons
                     metricsCard
                     outputCard
@@ -76,21 +79,70 @@ struct ContentView: View {
         }
     }
 
-    private var runButtons: some View {
-        HStack {
+    private var audioRow: some View {
+        HStack(spacing: 12) {
             Button {
-                Task { await engine.generateText(prompt) }
-            } label: { Label("Text only", systemImage: "text.bubble") }
-                .buttonStyle(.bordered)
-                .disabled(!isReady)
-
-            Button {
-                guard let data = pickedImageData else { return }
-                Task { await engine.generateVision(imageData: data, prompt: prompt) }
-            } label: { Label("Text + image", systemImage: "photo.on.rectangle") }
-                .buttonStyle(.borderedProminent)
-                .disabled(!isReady || pickedImageData == nil)
+                if audioRecorder.isRecording {
+                    pendingAudioData = audioRecorder.stopRecording()
+                } else {
+                    pendingAudioData = nil
+                    Task { try? await audioRecorder.startRecording() }
+                }
+            } label: {
+                Label(audioRecorder.isRecording ? "Stop" : "Record",
+                      systemImage: audioRecorder.isRecording ? "stop.circle.fill" : "mic.circle.fill")
+                    .foregroundColor(audioRecorder.isRecording ? .red : .accentColor)
+            }
+            if audioRecorder.isRecording {
+                ProgressView(value: audioRecorder.meterLevel).frame(maxWidth: 120)
+            }
+            if pendingAudioData != nil && !audioRecorder.isRecording {
+                Image(systemName: "waveform.circle.fill").foregroundStyle(.green)
+                Text("audio ready").font(.caption).foregroundStyle(.secondary)
+                Button(role: .destructive) { pendingAudioData = nil } label: {
+                    Image(systemName: "xmark.circle.fill")
+                }
+            }
+            Spacer()
         }
+    }
+
+    private var runButtons: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Button {
+                    Task { await engine.generateText(prompt) }
+                } label: { Label("Text", systemImage: "text.bubble") }
+                    .buttonStyle(.bordered).disabled(!isReady)
+
+                Button {
+                    guard let data = pickedImageData else { return }
+                    Task { await engine.generateVision(imageData: data, prompt: prompt); clearAttachments() }
+                } label: { Label("+ image", systemImage: "photo.on.rectangle") }
+                    .buttonStyle(.bordered).disabled(!isReady || pickedImageData == nil)
+
+                Button {
+                    guard let data = pendingAudioData else { return }
+                    Task { await engine.generateAudio(audioData: data, prompt: prompt); clearAttachments() }
+                } label: { Label("+ audio", systemImage: "waveform") }
+                    .buttonStyle(.bordered).disabled(!isReady || pendingAudioData == nil)
+
+                Button {
+                    var imgs: [Data] = []
+                    if let i = pickedImageData { imgs.append(i) }
+                    var auds: [Data] = []
+                    if let a = pendingAudioData { auds.append(a) }
+                    Task { await engine.generateMultimodal(audioData: auds, imagesData: imgs, prompt: prompt); clearAttachments() }
+                } label: { Label("All", systemImage: "sparkles") }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!isReady || (pickedImageData == nil && pendingAudioData == nil))
+            }
+        }
+    }
+
+    private func clearAttachments() {
+        pickedImageData = nil; pickedThumb = nil; pickedItem = nil
+        pendingAudioData = nil
     }
 
     private var metricsCard: some View {
