@@ -1,83 +1,72 @@
 # gemma4-running-coach
 
-On-device **Gemma 4 E2B** (text + vision) running on iPhone via **llama.cpp**.
-
-This is the inference foundation for a running-coach app — the LLM lives entirely on the phone, works in airplane mode, and accepts both text prompts and photos through the standard iOS Photos picker.
+On-device **Gemma 4 E2B** (text + vision) running on iPhone — two parallel implementations.
 
 > 📱 **Target:** iPhone 16 Pro (A18 Pro, 8 GB RAM)
-> 🧠 **Model:** Gemma 4 E2B (4.65 B raw / ~2 B effective params, Q4_K_M GGUF, ~2.9 GB) + mmproj-F16 vision projector (~940 MB)
-> ⚙️ **Runtime:** llama.cpp (commit `dbe7901`+) with `tools/mtmd` for vision
+> 🧠 **Model:** Gemma 4 E2B (4.65 B raw / ~2 B effective params, multimodal)
+> 🎯 **Goal:** running-coach app that works fully on-device, including in airplane mode
 
 ---
 
-## What this repo is
+## Two implementations, one repo
 
-A small overlay on top of [`ggml-org/llama.cpp`](https://github.com/ggml-org/llama.cpp). It contains:
+| | [`llama-cpp/`](./llama-cpp/) | [`litert-lm/`](./litert-lm/) |
+|---|---|---|
+| **Runtime** | [llama.cpp](https://github.com/ggml-org/llama.cpp) + custom XCFramework with `tools/mtmd` | [LiteRT-LM](https://ai.google.dev/edge/litert-lm) via the [`mylovelycodes/LiteRTLM-Swift`](https://github.com/mylovelycodes/LiteRTLM-Swift) community package |
+| **Model format** | GGUF (Q4_K_M, ~2.9 GB) + mmproj-F16 (~940 MB) | `.litertlm` bundle (~2.6 GB) |
+| **iOS app size** | 3.8 GB (model bundled in .app) | 40 MB (model downloaded on first launch) |
+| **Lines of integration code** | ~150 (LibLlama + mtmd Swift bridge) | ~4 lines for happy path |
+| **Vision** | ✅ wired via `mtmd` C API | ✅ built-in `engine.vision()` |
+| **Audio** | ❌ would need parallel mtmd-audio path | ✅ built-in `engine.audio()` |
+| **Multimodal (image + audio together)** | ❌ | ✅ `engine.multimodal()` |
+| **MTP (multi-token prediction)** | ❌ | ✅ from LiteRT-LM v0.11+ |
+| **ANE access** | ❌ Metal GPU only | ⚠️ depends on what backends the prebuilt xcframework was compiled with |
+| **Min device** | iPhone 8 / A11 (small models) | iPhone 13 Pro / 6 GB+ RAM |
+| **Trust model** | All source you can audit | Includes a prebuilt binary `CLiteRTLM.xcframework` from a small community repo |
+| **Build status** | ✅ `BUILD SUCCEEDED` for `generic/iOS` | ✅ `BUILD SUCCEEDED` for `generic/iOS` |
+| **Quickstart** | `cd llama-cpp && ./scripts/apply.sh` | `cd litert-lm && ./apply.sh` |
 
-- **4 patched files** that extend the stock `examples/llama.swiftui` iOS example with Gemma 4 + vision:
-  - `patches/LibLlama.swift` — adds `mtmd_context`, `loadMmproj()`, `completion_init_with_image()`
-  - `patches/LlamaState.swift` — auto-loads bundled mmproj, new `complete(text:, imagePath:)` overload
-  - `patches/ContentView.swift` — `PhotosPicker` UI, image staging, image-aware send
-  - `patches/build-xcframework.sh` — enables `LLAMA_BUILD_TOOLS=ON` so `libmtmd.a` is built
-- **`scripts/build_ios_xcframework.sh`** — manual iOS-only XCFramework build (the official multi-platform `build-xcframework.sh` fails at visionOS configure when `LLAMA_BUILD_TOOLS=ON`; this script combines the iOS device + sim outputs into a clean framework with mtmd headers exposed in the modulemap)
-- **`scripts/apply.sh`** — one-shot: clones llama.cpp, overlays the patches, downloads the GGUFs, builds the iOS-only XCFramework
-- **`RUNTIME_STATUS.md`** — detailed notes on what was built, on-device perf estimates, and the manual Xcode steps to deploy to a physical iPhone
+Both end up unsigned `.app` bundles ready for Xcode signing + iPhone deploy. See each subdirectory's README for the full build steps and the per-file deploy walkthrough.
 
----
+## Performance reference (Gemma 4 E2B on Mac mini M4, Metal)
 
-## Quickstart (Mac w/ Xcode 26+)
+These numbers are from the macOS CLI of each runtime — directly comparable since both saturate the same Metal GPU:
 
-```bash
-git clone https://github.com/<you>/gemma4-running-coach.git
-cd gemma4-running-coach
-./scripts/apply.sh
-```
+| Backend | Prefill (pp256) | Decode (tg128) |
+|---|---|---|
+| llama.cpp | **758 tok/s** | 57 tok/s |
+| LiteRT-LM (CLI) | 202 tok/s | 69 tok/s |
+| MLX (reference) | 203 tok/s | ~85 tok/s |
 
-That script:
-1. Clones llama.cpp to `./llama.cpp/`
-2. Overlays the four patched files into the iOS example
-3. Downloads the GGUF (Gemma 4 E2B Q4_K_M, ~2.9 GB) and mmproj (~940 MB) into the iOS app's `Resources/models/`
-4. Runs `cmake -B build` for macOS sanity (you can `llama-bench` against the GGUF if you want to verify Metal locally — ~57 decode tok/s on M4)
-5. Runs the iOS-only XCFramework script (~5 min, builds the `llama.framework` with mtmd)
-6. Builds `llama.swiftui.app` for `generic/platform=iOS` (unsigned)
+iPhone 16 Pro estimate (~3-4× slower for memory-bandwidth-bound inference):
+- Decode: **~15-20 tok/s on llama.cpp**, **~30-40 tok/s on LiteRT-LM with MTP enabled**
+- Image processing (CLIP → 256 image tokens): ~2-4 sec one-time per image on either
 
-After that, open `llama.cpp/examples/llama.swiftui/llama.swiftui.xcodeproj` in Xcode, set up your Apple ID team in *Signing & Capabilities*, plug in an iPhone, hit ⌘R. See **RUNTIME_STATUS.md** for the full deploy walkthrough.
+## When to pick which
 
----
+**Pick `llama-cpp/`** if you want maximum control over sampling, custom sampler chains, RAG plumbing, or you don't trust prebuilt binaries. It's the path the broader community uses (Ollama, LM Studio, every local-LLM iOS app on the App Store).
 
-## Why these specific changes
+**Pick `litert-lm/`** if you want the audio + vision + multimodal API with minimal Swift code, MTP for free, and you're OK with iPhone 13 Pro+ as your floor and a small-community Swift wrapper. For the running-coach use case (prompt + photo + voice → coaching response), this is the more direct fit.
 
-llama.cpp's stock iOS example (`examples/llama.swiftui`) is text-only. It links a Swift Package–style `llama.xcframework` that doesn't include `tools/mtmd` (the multimodal pipeline that handles CLIP image encoding + image-token injection). To get vision on iPhone:
-
-1. **Build mtmd into the framework.** Stock `build-xcframework.sh` sets `LLAMA_BUILD_TOOLS=OFF`. Flipping it to ON pulls in mtmd, but the multi-platform pipeline trips over visionOS feature detection in `common/`. So we ship a focused iOS-only build script that only links what's needed (`libllama.a + libggml*.a + libmtmd.a`), excludes `common`/`httplib` (mtmd doesn't need them — verified via `target_link_libraries` in `tools/mtmd/CMakeLists.txt`), and exposes only the public mtmd headers (`mtmd.h`, `mtmd-helper.h`) in the framework modulemap. `mtmd-image.h` and `mtmd-audio.h` are excluded because they `#include "clip-model.h"` which isn't part of the public API.
-
-2. **Wire the Swift side.** `LibLlama.swift` gains a `ctx_vision: OpaquePointer?` field, a `loadMmproj()` method, and a `completion_init_with_image()` method that calls `mtmd_helper_bitmap_init_from_file → mtmd_tokenize → mtmd_helper_eval_chunks` to prefill image tokens into the KV cache. After that, the existing `completion_loop()` continues sampling tokens normally. The `n_past` and `n_cur` accounting is identical to the text-only path.
-
-3. **Bundle the GGUFs.** Both the main model and the mmproj are dropped into `Resources/models/`. The pbxproj already references that directory as a folder reference, so they're packaged into the .app bundle without any project-file edit. `LlamaState.swift` resolves them via `Bundle.main.url(forResource:withExtension:subdirectory:)`. App bundle ends up ~3.8 GB.
-
-4. **UI.** A `PhotosPicker` button next to Send. On select, the image is written to `temporaryDirectory` as JPEG q92, and the path is passed to `complete(text:, imagePath:)`.
-
----
-
-## Performance reference (Mac mini M4, llama.cpp Metal)
+## Repo layout
 
 ```
-| model                    |  size   | params | backend  | threads |  test  |       t/s |
-|--------------------------|---------|--------|----------|---------|--------|-----------|
-| gemma4 E2B Q4_K - Medium | 2.88GiB | 4.65 B | MTL,BLAS |    8    | pp256  |  758 ± 1  |
-| gemma4 E2B Q4_K - Medium | 2.88GiB | 4.65 B | MTL,BLAS |    8    | tg128  |  57 ± 0.04|
+gemma4-running-coach/
+├── README.md                              # this file
+├── llama-cpp/
+│   ├── RUNTIME_STATUS.md                  # detailed build/perf notes for llama.cpp path
+│   ├── patches/                           # 4 modified Swift/script files vs upstream llama.cpp
+│   └── scripts/
+│       ├── apply.sh                       # clone llama.cpp + overlay patches + build
+│       └── build_ios_xcframework.sh       # iOS-only XCFramework builder (works around visionOS issue)
+└── litert-lm/
+    ├── README.md
+    ├── apply.sh                           # one-shot: install xcodegen + build
+    └── ios-app/
+        ├── project.yml                    # XcodeGen spec
+        └── GemmaCoach/                    # SwiftUI app (App / View / EngineModel + assets)
 ```
-
-Expected on iPhone 16 Pro (~3-4× slower for memory-bandwidth-bound inference):
-- Text decode: **~15-20 tok/s**
-- Text prefill: **~200 tok/s**
-- Image processing (CLIP → 256 image tokens): **~1-3 sec one-time per image**
-- Cold load: **~5-10 sec** (mmap of 3.8 GB bundle)
-
----
 
 ## License
 
-The patched Swift files inherit Apache 2.0 from llama.cpp upstream. This repo's README + scripts are MIT — do whatever.
-
-The Gemma 4 model weights are governed by Google's [Gemma Terms of Use](https://ai.google.dev/gemma/terms).
+Apache 2.0 for code that derives from llama.cpp / LiteRT-LM. MIT for everything else in this repo. Gemma 4 model weights are governed by [Google's Gemma Terms of Use](https://ai.google.dev/gemma/terms).
