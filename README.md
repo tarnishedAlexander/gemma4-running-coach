@@ -1,6 +1,6 @@
 # gemma4-running-coach
 
-On-device **Gemma 4 E2B** (text + vision) running on iPhone — two parallel implementations.
+On-device **Gemma 4 E2B** (text + vision + audio + live coaching mode) running on iPhone — two parallel implementations.
 
 > 📱 **Target:** iPhone 16 Pro (A18 Pro, 8 GB RAM)
 > 🧠 **Model:** Gemma 4 E2B (4.65 B raw / ~2 B effective params, multimodal)
@@ -8,25 +8,86 @@ On-device **Gemma 4 E2B** (text + vision) running on iPhone — two parallel imp
 
 ---
 
-## Two implementations, one repo
+## Getting started
+
+### Prerequisites
+
+| Dependency | Why | Where |
+|---|---|---|
+| **Mac on Apple Silicon, macOS 14+** | Required for Xcode 16 + Metal toolchain | — |
+| **Xcode 16 or newer** | iOS app build + signing | App Store |
+| **`cmake` 3.28+** | `llama-cpp/` path only — needed to build llama.cpp + iOS XCFramework | [cmake.org/download](https://cmake.org/download/) (universal binary, no install needed) |
+| **Apple ID + signing team** | Deploy to physical iPhone | Free personal team works for 7-day testing; paid Apple Developer Program ($99/yr) needed for the `Increased Memory Limit` entitlement that `litert-lm/` requires |
+| **iPhone (target device)** | `litert-lm/`: iPhone 13 Pro / 6 GB+ RAM minimum. `llama-cpp/`: iPhone 8+ works for small models | — |
+
+Everything else (XcodeGen, model weights, LiteRT-LM Swift package, etc.) is auto-fetched by the per-path `apply.sh` scripts. **Nothing needs manual install beyond what's in this table.**
+
+### Quickstart
+
+Pick the path you want and run its `apply.sh`. Both produce an unsigned `.app` ready for Xcode signing + iPhone deploy.
+
+**Path 1 — `litert-lm/` (recommended for live coaching demo)**
+```
+git clone https://github.com/louis6962/gemma4-running-coach.git
+cd gemma4-running-coach/litert-lm
+./apply.sh                              # ~2 min, no model download
+open ios-app/GemmaCoach.xcodeproj
+# In Xcode: Signing & Capabilities → Automatically manage → pick Team
+# Plug iPhone, ⌘R
+# App downloads 2.6 GB Gemma 4 model on first launch from HuggingFace
+```
+
+**Path 2 — `llama-cpp/` (max control + iPhone deploy w/o entitlements)**
+```
+cd gemma4-running-coach/llama-cpp
+./scripts/apply.sh                      # ~15-20 min, downloads + builds everything
+open llama.cpp/examples/llama.swiftui/llama.swiftui.xcodeproj
+# Same Xcode signing setup
+# ⌘R, first install ~1-3 min (3.8 GB bundle includes model)
+```
+
+Each subdirectory has its own README with deploy details, prerequisites, and troubleshooting.
+
+### Model sources (linked, downloaded automatically by apply.sh)
+
+| | Source repo | File | Size |
+|---|---|---|---|
+| LiteRT-LM model | [`litert-community/gemma-4-E2B-it-litert-lm`](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm) | `gemma-4-E2B-it.litertlm` | 2.6 GB |
+| llama.cpp text model | [`unsloth/gemma-4-E2B-it-GGUF`](https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF) | `gemma-4-E2B-it-Q4_K_M.gguf` | 2.9 GB |
+| llama.cpp vision projector | same repo | `mmproj-F16.gguf` | 940 MB |
+
+You don't have to download these manually — `apply.sh` for each path handles it. Linked here so you know what's being pulled.
+
+### Source repositories used (linked from per-path scripts)
+
+| Component | Repo | Purpose |
+|---|---|---|
+| llama.cpp upstream | [`ggml-org/llama.cpp`](https://github.com/ggml-org/llama.cpp) | Inference engine for `llama-cpp/` path |
+| LiteRT-LM Swift wrapper | [`mylovelycodes/LiteRTLM-Swift`](https://github.com/mylovelycodes/LiteRTLM-Swift) | Community Swift package for `litert-lm/` path |
+| LiteRT-LM upstream | [`google-ai-edge/LiteRT-LM`](https://github.com/google-ai-edge/LiteRT-LM) | Underlying C++ runtime |
+| XcodeGen | [`yonaskolb/XcodeGen`](https://github.com/yonaskolb/XcodeGen) | Auto-generates `.xcodeproj` from `project.yml` |
+
+---
+
+## Two implementations, side by side
 
 | | [`llama-cpp/`](./llama-cpp/) | [`litert-lm/`](./litert-lm/) |
 |---|---|---|
-| **Runtime** | [llama.cpp](https://github.com/ggml-org/llama.cpp) + custom XCFramework with `tools/mtmd` | [LiteRT-LM](https://ai.google.dev/edge/litert-lm) via the [`mylovelycodes/LiteRTLM-Swift`](https://github.com/mylovelycodes/LiteRTLM-Swift) community package |
+| **Runtime** | [llama.cpp](https://github.com/ggml-org/llama.cpp) + custom XCFramework with `tools/mtmd` | [LiteRT-LM](https://ai.google.dev/edge/litert-lm) via [`mylovelycodes/LiteRTLM-Swift`](https://github.com/mylovelycodes/LiteRTLM-Swift) |
 | **Model format** | GGUF (Q4_K_M, ~2.9 GB) + mmproj-F16 (~940 MB) | `.litertlm` bundle (~2.6 GB) |
 | **iOS app size** | 3.8 GB (model bundled in .app) | 40 MB (model downloaded on first launch) |
 | **Lines of integration code** | ~150 (LibLlama + mtmd Swift bridge) | ~4 lines for happy path |
 | **Vision** | ✅ wired via `mtmd` C API | ✅ built-in `engine.vision()` |
-| **Audio** | ❌ would need parallel mtmd-audio path | ✅ built-in `engine.audio()` |
+| **Audio** | ❌ would need parallel mtmd-audio path | ✅ built-in `engine.audio()` (mic recorder + 16 kHz WAV pipeline included) |
+| **Live coaching mode** (TTS + trigger loop + background audio) | ❌ not built | ✅ wired (`LiveSession.swift`, `CoachSpeaker.swift`) |
 | **Multimodal (image + audio together)** | ❌ | ✅ `engine.multimodal()` |
 | **MTP (multi-token prediction)** | ❌ | ✅ from LiteRT-LM v0.11+ |
-| **ANE access** | ❌ Metal GPU only | ⚠️ depends on what backends the prebuilt xcframework was compiled with |
+| **ANE access** | ❌ Metal GPU only | ❌ Metal GPU only (audio encoder pinned to CPU at model level — deliberate Google optimization, not a constraint) |
 | **Min device** | iPhone 8 / A11 (small models) | iPhone 13 Pro / 6 GB+ RAM |
 | **Trust model** | All source you can audit | Includes a prebuilt binary `CLiteRTLM.xcframework` from a small community repo |
 | **Build status** | ✅ `BUILD SUCCEEDED` for `generic/iOS` | ✅ `BUILD SUCCEEDED` for `generic/iOS` |
-| **Quickstart** | `cd llama-cpp && ./scripts/apply.sh` | `cd litert-lm && ./apply.sh` |
 
-Both end up unsigned `.app` bundles ready for Xcode signing + iPhone deploy. See each subdirectory's README for the full build steps and the per-file deploy walkthrough.
+Both end up unsigned `.app` bundles ready for Xcode signing + iPhone deploy.
 
 ## Performance reference (Gemma 4 E2B on Mac mini M4, Metal)
 
@@ -39,33 +100,15 @@ These numbers are from the macOS CLI of each runtime — directly comparable sin
 | MLX (reference) | 203 tok/s | ~85 tok/s |
 
 iPhone 16 Pro estimate (~3-4× slower for memory-bandwidth-bound inference):
-- Decode: **~15-20 tok/s on llama.cpp**, **~30-40 tok/s on LiteRT-LM with MTP enabled**
-- Image processing (CLIP → 256 image tokens): ~2-4 sec one-time per image on either
+- Decode: **~15-20 tok/s on either path**
+- Image processing (CLIP → 256 image tokens): **~2-4 sec one-time per image**
 
-## When to pick which
+See [`litert-lm/TESTING_PARITY.md`](./litert-lm/TESTING_PARITY.md) for three real ways to test on actual iPhone hardware (Xcode WiFi pairing, BrowserStack cloud iPhone, macOS CPU throttling).
 
-**Pick `llama-cpp/`** if you want maximum control over sampling, custom sampler chains, RAG plumbing, or you don't trust prebuilt binaries. It's the path the broader community uses (Ollama, LM Studio, every local-LLM iOS app on the App Store).
+## Architecture notes
 
-**Pick `litert-lm/`** if you want the audio + vision + multimodal API with minimal Swift code, MTP for free, and you're OK with iPhone 13 Pro+ as your floor and a small-community Swift wrapper. For the running-coach use case (prompt + photo + voice → coaching response), this is the more direct fit.
-
-## Repo layout
-
-```
-gemma4-running-coach/
-├── README.md                              # this file
-├── llama-cpp/
-│   ├── RUNTIME_STATUS.md                  # detailed build/perf notes for llama.cpp path
-│   ├── patches/                           # 4 modified Swift/script files vs upstream llama.cpp
-│   └── scripts/
-│       ├── apply.sh                       # clone llama.cpp + overlay patches + build
-│       └── build_ios_xcframework.sh       # iOS-only XCFramework builder (works around visionOS issue)
-└── litert-lm/
-    ├── README.md
-    ├── apply.sh                           # one-shot: install xcodegen + build
-    └── ios-app/
-        ├── project.yml                    # XcodeGen spec
-        └── GemmaCoach/                    # SwiftUI app (App / View / EngineModel + assets)
-```
+- [`docs/ARCHITECTURE_PERCEPTION_GATE.md`](./docs/ARCHITECTURE_PERCEPTION_GATE.md) — design note on splitting perception (ANE) from reasoning (GPU); not implemented, future direction
+- [`UPDATES/2026-05-15-live-mode.md`](./UPDATES/2026-05-15-live-mode.md) — written status update for team
 
 ## License
 
