@@ -12,7 +12,7 @@ final class LiveSession: ObservableObject {
     @Published var isRunning: Bool = false
     @Published var lastTriggerAt: Date? = nil
     @Published var triggerCount: Int = 0
-    @Published var periodSeconds: Double = 60
+    @Published var periodSeconds: Double = 15
     @Published var lastFinishedDecodeTokensPerSecond: Double = 0
     @Published var lastError: String? = nil
 
@@ -65,7 +65,7 @@ final class LiveSession: ObservableObject {
 
         let metricsStr = metrics?.getCurrentStateString() ?? "No live metrics available."
         let prompt = """
-        You are a friendly running coach giving a 1-minute update. 
+        You are a friendly running coach giving immediate feedback. 
         Based on the runner's current metrics below, give ONE concise sentence of feedback or encouragement. Keep it conversational.
         
         Current Metrics:
