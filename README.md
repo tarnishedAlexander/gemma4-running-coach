@@ -150,6 +150,7 @@ We have recently upgraded the Gemma 4 Running Coach from a static prompt to a **
 - **CoreMotion (CMPedometer):** Live step Cadence tracking (`spm`).
 - **CoreMotion (CMAltimeter):** Live Barometer tracking for Elevation changes and hills (`meters`).
 - **CoreBluetooth:** Real-time Heart Rate tracking (`BPM`) using standard `180D` Bluetooth chest straps (Garmin, Polar, Wahoo).
+- **HealthKit (Apple Watch MVP):** Architectural hooks added to sync Advanced Running Dynamics, including **Running Power** (`Watts`) and **Stride Length** (`meters`), directly from the Apple Watch sensors via `WatchConnectivity`.
 
 ### Conversational Memory & In-Context Learning
 To optimize the inference speed on edge devices, the app utilizes a **Rolling Window Conversational Memory** (`LiveSession.swift`). 
