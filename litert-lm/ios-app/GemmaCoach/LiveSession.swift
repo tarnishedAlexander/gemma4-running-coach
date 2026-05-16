@@ -12,22 +12,20 @@ final class LiveSession: ObservableObject {
     @Published var isRunning: Bool = false
     @Published var lastTriggerAt: Date? = nil
     @Published var triggerCount: Int = 0
-    @Published var periodSeconds: Double = 15
+    @Published var periodSeconds: Double = 60
     @Published var lastFinishedDecodeTokensPerSecond: Double = 0
     @Published var lastError: String? = nil
 
     private weak var engine: EngineModel?
     private weak var speaker: CoachSpeaker?
+    private weak var metrics: RunMetricsManager?
     private var loopTask: Task<Void, Never>? = nil
     private var inflight: Task<Void, Never>? = nil
 
-    /// Coaching prompt template — the {{state}} placeholder is filled per trigger.
-    var promptTemplate: String =
-        "You are a friendly running coach. In ONE concise sentence, give the runner immediate feedback or encouragement. Keep it short — they're mid-stride."
-
-    func attach(engine: EngineModel, speaker: CoachSpeaker) {
+    func attach(engine: EngineModel, speaker: CoachSpeaker, metrics: RunMetricsManager) {
         self.engine = engine
         self.speaker = speaker
+        self.metrics = metrics
     }
 
     func start() {
@@ -65,7 +63,15 @@ final class LiveSession: ObservableObject {
         lastTriggerAt = Date()
         guard let engine = engine, engine.isReady else { return }
 
-        let prompt = promptTemplate
+        let metricsStr = metrics?.getCurrentStateString() ?? "No live metrics available."
+        let prompt = """
+        You are a friendly running coach giving a 1-minute update. 
+        Based on the runner's current metrics below, give ONE concise sentence of feedback or encouragement. Keep it conversational.
+        
+        Current Metrics:
+        \(metricsStr)
+        """
+        
         let speaker = self.speaker
 
         inflight = Task { @MainActor in

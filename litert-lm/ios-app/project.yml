@@ -52,6 +52,8 @@ targets:
           - UIInterfaceOrientationPortrait
         NSPhotoLibraryUsageDescription: Pick a photo to ask Gemma 4 about.
         NSMicrophoneUsageDescription: Record voice prompts for Gemma 4 coaching.
+        NSLocationWhenInUseUsageDescription: Track your speed and pace while running to provide live coaching feedback.
+        NSMotionUsageDescription: Track your step cadence to provide running feedback.
     entitlements:
       path: GemmaCoach/GemmaCoach.entitlements
       properties:

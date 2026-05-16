@@ -14,6 +14,7 @@ struct ContentView: View {
     @State private var pendingAudioData: Data? = nil
     @StateObject private var speaker = CoachSpeaker()
     @StateObject private var liveSession = LiveSession()
+    @StateObject private var metricsManager = RunMetricsManager()
 
     var body: some View {
         NavigationStack {
@@ -32,7 +33,7 @@ struct ContentView: View {
             }
             .navigationTitle("Gemma Coach")
             .task {
-                liveSession.attach(engine: engine, speaker: speaker)
+                liveSession.attach(engine: engine, speaker: speaker, metrics: metricsManager)
                 await engine.loadIfNeeded()
             }
         }
@@ -174,7 +175,15 @@ struct ContentView: View {
                 HStack {
                     Toggle(isOn: Binding(
                         get: { liveSession.isRunning },
-                        set: { newVal in newVal ? liveSession.start() : liveSession.stop() }
+                        set: { newVal in 
+                            if newVal {
+                                metricsManager.start()
+                                liveSession.start()
+                            } else {
+                                liveSession.stop()
+                                metricsManager.stop()
+                            }
+                        }
                     )) {
                         Label(liveSession.isRunning ? "Live" : "Off",
                               systemImage: liveSession.isRunning ? "dot.radiowaves.left.and.right" : "circle")
@@ -186,6 +195,14 @@ struct ContentView: View {
                         Image(systemName: speaker.isSpeaking ? "speaker.wave.3.fill" : "speaker")
                             .foregroundStyle(speaker.isSpeaking ? Color.accentColor : .secondary)
                     }
+                }
+
+                if metricsManager.isActive {
+                    HStack(spacing: 12) {
+                        metric("Pace", metricsManager.formattedPace)
+                        metric("Cadence", "\(Int(metricsManager.currentCadenceSPM)) spm")
+                    }
+                    .padding(.vertical, 4)
                 }
 
                 VStack(alignment: .leading) {
