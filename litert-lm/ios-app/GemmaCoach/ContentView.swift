@@ -198,11 +198,17 @@ struct ContentView: View {
                 }
 
                 if metricsManager.isActive {
-                    HStack(spacing: 12) {
-                        metric("Heart Rate", metricsManager.currentHeartRateBPM > 0 ? "\(metricsManager.currentHeartRateBPM) BPM" : "—")
-                        metric("Pace", metricsManager.formattedPace)
-                        metric("Cadence", "\(Int(metricsManager.currentCadenceSPM)) spm")
-                        metric("Elev", String(format: "%.1fm", metricsManager.currentElevationMeters))
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 12) {
+                            metric("Heart Rate", metricsManager.currentHeartRateBPM > 0 ? "\(metricsManager.currentHeartRateBPM) BPM" : "—")
+                            metric("Pace", metricsManager.formattedPace)
+                            metric("Cadence", "\(Int(metricsManager.currentCadenceSPM)) spm")
+                        }
+                        HStack(spacing: 12) {
+                            metric("Elev", String(format: "%.1fm", metricsManager.currentElevationMeters))
+                            metric("Power", "\(Int(metricsManager.currentRunningPowerWatts)) W")
+                            metric("Stride", String(format: "%.2fm", metricsManager.currentStrideLengthMeters))
+                        }
                     }
                     .padding(.vertical, 4)
                 }

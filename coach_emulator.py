@@ -17,16 +17,20 @@ def get_mock_sensor_data():
     # Random elevation change between -5 and +15 meters
     elevation = random.randint(-5, 15)
     
-    return pace, cadence, hr, elevation
+    # Advanced Running Metrics (Apple Watch)
+    power = random.randint(150, 350) # Watts
+    stride = round(random.uniform(0.8, 1.4), 2) # Meters
+    
+    return pace, cadence, hr, elevation, power, stride
 
 def get_system_prompt():
     return """You are a friendly running coach giving immediate feedback. 
 Based on the runner's current metrics, give ONE concise sentence of feedback or encouragement. Keep it conversational.
 IMPORTANT: Respond ONLY with the spoken sentence. Do not use any <think> blocks, markdown formatting, or chain of thought reasoning."""
 
-def generate_user_message(pace, cadence, hr, elevation):
+def generate_user_message(pace, cadence, hr, elevation, power, stride):
     """Builds just the data portion to send to the LLM."""
-    return f"Current Metrics:\nHeart Rate: {hr} BPM\nPace: {pace}\nCadence: {cadence} steps per minute\nElevation Change: {elevation} meters"
+    return f"Current Metrics:\nHeart Rate: {hr} BPM\nPace: {pace}\nCadence: {cadence} steps per minute\nElevation Change: {elevation} meters\nRunning Power: {power} W\nStride Length: {stride} m"
 
 def simulate_llm_response(chat_history):
     """
@@ -75,7 +79,7 @@ def main():
             
             # 1. Gather Info
             sensor_start = time.perf_counter()
-            pace, cadence, hr, elevation = get_mock_sensor_data()
+            pace, cadence, hr, elevation, power, stride = get_mock_sensor_data()
             sensor_time = time.perf_counter() - sensor_start
             
             print("\n📥 1. GATHERING SENSOR INFO (Emulated):")
@@ -83,10 +87,12 @@ def main():
             print(f"   - GPS Pace: {pace}")
             print(f"   - Motion Cadence: {cadence} spm")
             print(f"   - Elevation Change: {elevation} meters")
+            print(f"   - Running Power: {power} W")
+            print(f"   - Stride Length: {stride} m")
             print(f"   ⏱️  Sensor data collected in: {sensor_time:.5f} seconds")
             
             # 2. Append to Context Window
-            user_msg = generate_user_message(pace, cadence, hr, elevation)
+            user_msg = generate_user_message(pace, cadence, hr, elevation, power, stride)
             chat_history.append({'role': 'user', 'content': user_msg})
             
             print("\n📝 2. NEW MESSAGE APPENDED TO CONTEXT:")

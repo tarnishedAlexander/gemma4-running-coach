@@ -12,6 +12,8 @@ final class RunMetricsManager: NSObject, ObservableObject, CLLocationManagerDele
     @Published var currentCadenceSPM: Double = 0
     @Published var currentHeartRateBPM: Int = 0
     @Published var currentElevationMeters: Double = 0
+    @Published var currentRunningPowerWatts: Double = 0
+    @Published var currentStrideLengthMeters: Double = 0
     @Published var isActive: Bool = false
     
     private let locationManager = CLLocationManager()
@@ -51,6 +53,10 @@ final class RunMetricsManager: NSObject, ObservableObject, CLLocationManagerDele
                 
                 // Random mock elevation change
                 self?.currentElevationMeters = Double.random(in: -5...15)
+                
+                // Random mock Apple Watch metrics
+                self?.currentRunningPowerWatts = Double.random(in: 150...350)
+                self?.currentStrideLengthMeters = Double.random(in: 0.8...1.4)
             }
         }
         #else
@@ -141,6 +147,8 @@ final class RunMetricsManager: NSObject, ObservableObject, CLLocationManagerDele
         Pace: \(formattedPace)
         Cadence: \(Int(currentCadenceSPM)) steps per minute
         Elevation Change: \(String(format: "%.1f", currentElevationMeters)) meters
+        Running Power: \(Int(currentRunningPowerWatts)) W
+        Stride Length: \(String(format: "%.2f", currentStrideLengthMeters)) m
         """
     }
     
