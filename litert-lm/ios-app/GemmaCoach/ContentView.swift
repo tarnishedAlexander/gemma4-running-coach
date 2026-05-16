@@ -199,8 +199,10 @@ struct ContentView: View {
 
                 if metricsManager.isActive {
                     HStack(spacing: 12) {
+                        metric("Heart Rate", metricsManager.currentHeartRateBPM > 0 ? "\(metricsManager.currentHeartRateBPM) BPM" : "—")
                         metric("Pace", metricsManager.formattedPace)
                         metric("Cadence", "\(Int(metricsManager.currentCadenceSPM)) spm")
+                        metric("Elev", String(format: "%.1fm", metricsManager.currentElevationMeters))
                     }
                     .padding(.vertical, 4)
                 }

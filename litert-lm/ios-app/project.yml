@@ -54,6 +54,7 @@ targets:
         NSMicrophoneUsageDescription: Record voice prompts for Gemma 4 coaching.
         NSLocationWhenInUseUsageDescription: Track your speed and pace while running to provide live coaching feedback.
         NSMotionUsageDescription: Track your step cadence to provide running feedback.
+        NSBluetoothAlwaysUsageDescription: Connect to an external Bluetooth heart rate monitor to provide live running feedback.
     entitlements:
       path: GemmaCoach/GemmaCoach.entitlements
       properties:
