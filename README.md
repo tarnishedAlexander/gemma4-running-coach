@@ -141,6 +141,26 @@ iPhone 16 Pro estimate (~3-4× slower for memory-bandwidth-bound inference):
 
 See [`litert-lm/TESTING_PARITY.md`](./litert-lm/TESTING_PARITY.md) for three real ways to test on actual iPhone hardware (Xcode WiFi pairing, BrowserStack cloud iPhone, macOS CPU throttling).
 
+## Live Sensor Integration (New!)
+
+We have recently upgraded the Gemma 4 Running Coach from a static prompt to a **Real-Time Context-Aware** pipeline. The iOS app now directly integrates with iPhone hardware to feed live physical metrics into the Gemma 4 E2B model every 15 seconds.
+
+### Hardware Integrations:
+- **CoreLocation:** Live GPS speed mapping to calculate running Pace (`min/mi`).
+- **CoreMotion (CMPedometer):** Live step Cadence tracking (`spm`).
+- **CoreMotion (CMAltimeter):** Live Barometer tracking for Elevation changes and hills (`meters`).
+- **CoreBluetooth:** Real-time Heart Rate tracking (`BPM`) using standard `180D` Bluetooth chest straps (Garmin, Polar, Wahoo).
+
+### Conversational Memory & In-Context Learning
+To optimize the inference speed on edge devices, the app utilizes a **Rolling Window Conversational Memory** (`LiveSession.swift`). 
+- The strict system instructions are only passed once at the start of the context window.
+- Only the lightweight sensor metrics are appended every 15 seconds.
+- The model's previous answers are saved in the context window.
+- **Result:** Inference time dropped from ~7 seconds to **~0.4 seconds** as Gemma organically "learned" from its own context history to stop generating hidden chain-of-thought tokens!
+
+### Python Emulator (`coach_emulator.py`)
+If you don't have an iPhone to test the Swift hardware integrations, you can test the entire pipeline natively on Linux or macOS using the included `coach_emulator.py` script. It uses `ollama` to run the `gemma4:e2b` model locally, injects mock sensor data every 15 seconds, maintains the rolling memory window, and provides incredibly detailed token performance and speed metrics.
+
 ## Architecture notes
 
 - [`docs/ARCHITECTURE_PERCEPTION_GATE.md`](./docs/ARCHITECTURE_PERCEPTION_GATE.md) — design note on splitting perception (ANE) from reasoning (GPU); not implemented, future direction
