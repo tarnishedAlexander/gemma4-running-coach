@@ -2,32 +2,29 @@ name: GemmaCoach
 options:
   bundleIdPrefix: com.gemma4.runningcoach
   deploymentTarget:
-    iOS: "17.0"
+    iOS: "18.0"
   developmentLanguage: en
   createIntermediateGroups: true
 
 settings:
   base:
     SWIFT_VERSION: "5.9"
-    IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "18.0"
     GENERATE_INFOPLIST_FILE: NO
     ENABLE_USER_SCRIPT_SANDBOXING: NO
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
 
 packages:
-  LiteRTLMSwift:
-    # Vendored local fork pointing at PR #11 branch which fixes
-    # litert_lm_engine_settings_create returning NULL by passing
-    # nil for vision/audio backends when the caller hasn't opted in.
-    # Upstream PR: https://github.com/mylovelycodes/LiteRTLM-Swift/pull/11
-    path: ../../../LiteRTLM-Swift-fork
+  CoreMLLLM:
+    url: https://github.com/john-rocky/CoreML-LLM.git
+    from: "1.9.0"
 
 targets:
   GemmaCoach:
     type: application
     platform: iOS
-    deploymentTarget: "17.0"
+    deploymentTarget: "18.0"
     sources:
       - path: GemmaCoach
         excludes:
@@ -75,26 +72,5 @@ targets:
         # exist at runtime).
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks @loader_path/Frameworks"
     dependencies:
-      - package: LiteRTLMSwift
-        product: LiteRTLMSwift
-    postBuildScripts:
-      - name: "Embed CLiteRTLM.framework into app bundle"
-        script: |
-          set -e
-          XCFRAMEWORK="${BUILT_PRODUCTS_DIR}/../../SourcePackages/checkouts/LiteRTLM-Swift/Frameworks/LiteRTLM.xcframework"
-          if [ ! -d "$XCFRAMEWORK" ]; then
-            echo "warning: CLiteRTLM xcframework not found at $XCFRAMEWORK; skipping copy"
-            exit 0
-          fi
-          # Pick the slice matching the current build platform.
-          if [ "${PLATFORM_NAME}" = "iphonesimulator" ]; then
-            SLICE="${XCFRAMEWORK}/ios-arm64-simulator"
-            [ -d "$SLICE" ] || SLICE="${XCFRAMEWORK}/ios-arm64_x86_64-simulator"
-          else
-            SLICE="${XCFRAMEWORK}/ios-arm64"
-          fi
-          DEST="${TARGET_BUILD_DIR}/${PRODUCT_NAME}.app/Frameworks"
-          mkdir -p "$DEST"
-          rm -rf "$DEST/CLiteRTLM.framework"
-          cp -R "$SLICE/CLiteRTLM.framework" "$DEST/"
-          echo "embedded CLiteRTLM.framework from $SLICE"
+      - package: CoreMLLLM
+        product: CoreMLLLM
