@@ -127,9 +127,13 @@ final class EngineModel: ObservableObject {
 
     /// Streaming text generation that calls a chunk handler per token batch.
     /// Used by LiveSession for live mode TTS pipeline.
-    func streamCoach(prompt: String, onChunk: @MainActor @escaping (String) -> Void) async {
+    func streamCoach(history: [(role: String, content: String)], onChunk: @MainActor @escaping (String) -> Void) async {
         guard let engine else { status = .error("engine not loaded"); return }
-        let formatted = "<|turn>user\n\(prompt)\n<turn|>\n<|turn>model\n"
+        var formatted = ""
+        for message in history {
+            formatted += "<|turn>\(message.role)\n\(message.content)\n<turn|>\n"
+        }
+        formatted += "<|turn>model\n"
         status = .generating
         output = ""
         let start = Date()

@@ -21,6 +21,13 @@ final class LiveSession: ObservableObject {
     private weak var metrics: RunMetricsManager?
     private var loopTask: Task<Void, Never>? = nil
     private var inflight: Task<Void, Never>? = nil
+    private var chatHistory: [(role: String, content: String)] = []
+    
+    private let systemPrompt = """
+    You are a friendly running coach giving immediate feedback. 
+    Based on the runner's current metrics, give ONE concise sentence of feedback or encouragement. Keep it conversational.
+    IMPORTANT: Respond ONLY with the spoken sentence. Do not use any <think> blocks, markdown formatting, or chain of thought reasoning.
+    """
 
     func attach(engine: EngineModel, speaker: CoachSpeaker, metrics: RunMetricsManager) {
         self.engine = engine
@@ -33,6 +40,7 @@ final class LiveSession: ObservableObject {
         isRunning = true
         triggerCount = 0
         lastError = nil
+        chatHistory = []
         configureBackgroundAudio()
 
         loopTask = Task { @MainActor in
@@ -64,20 +72,35 @@ final class LiveSession: ObservableObject {
         guard let engine = engine, engine.isReady else { return }
 
         let metricsStr = metrics?.getCurrentStateString() ?? "No live metrics available."
-        let prompt = """
-        You are a friendly running coach giving immediate feedback. 
-        Based on the runner's current metrics below, give ONE concise sentence of feedback or encouragement. Keep it conversational.
         
-        Current Metrics:
-        \(metricsStr)
-        """
+        let userMessage: String
+        if chatHistory.isEmpty {
+            userMessage = "\(systemPrompt)\n\nCurrent Metrics:\n\(metricsStr)"
+        } else {
+            userMessage = "Current Metrics:\n\(metricsStr)"
+        }
+        
+        chatHistory.append((role: "user", content: userMessage))
         
         let speaker = self.speaker
+        let currentHistory = chatHistory
 
         inflight = Task { @MainActor in
-            await engine.streamCoach(prompt: prompt, onChunk: { chunk in
+            var fullResponse = ""
+            await engine.streamCoach(history: currentHistory, onChunk: { chunk in
+                fullResponse += chunk
                 speaker?.speak(chunk: chunk)
             })
+            
+            // Save answer to memory
+            self.chatHistory.append((role: "model", content: fullResponse))
+            
+            // Rolling memory window (keep system prompt at index 0, prune oldest user/model pair)
+            if self.chatHistory.count > 11 {
+                self.chatHistory.remove(at: 1)
+                self.chatHistory.remove(at: 1)
+            }
+            
             speaker?.flush()
             self.lastFinishedDecodeTokensPerSecond = engine.lastDecodeTokensPerSecond
         }
