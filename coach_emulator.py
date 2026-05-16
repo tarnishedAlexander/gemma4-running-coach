@@ -19,29 +19,24 @@ def get_mock_sensor_data():
     
     return pace, cadence, hr, elevation
 
-def generate_prompt(pace, cadence, hr, elevation):
-    """Builds the exact prompt that the iOS app builds."""
-    metrics_str = f"Heart Rate: {hr} BPM\nPace: {pace}\nCadence: {cadence} steps per minute\nElevation Change: {elevation} meters"
-    
-    prompt = f"""You are a friendly running coach giving immediate feedback. 
-Based on the runner's current metrics below, give ONE concise sentence of feedback or encouragement. Keep it conversational.
+def get_system_prompt():
+    return """You are a friendly running coach giving immediate feedback. 
+Based on the runner's current metrics, give ONE concise sentence of feedback or encouragement. Keep it conversational.
+IMPORTANT: Respond ONLY with the spoken sentence. Do not use any <think> blocks, markdown formatting, or chain of thought reasoning."""
 
-Current Metrics:
-{metrics_str}
-"""
-    return prompt
+def generate_user_message(pace, cadence, hr, elevation):
+    """Builds just the data portion to send to the LLM."""
+    return f"Current Metrics:\nHeart Rate: {hr} BPM\nPace: {pace}\nCadence: {cadence} steps per minute\nElevation Change: {elevation} meters"
 
-def simulate_llm_response(prompt, pace, cadence, hr, elevation):
+def simulate_llm_response(chat_history):
     """
     Calls the REAL Gemma model locally on Linux via Ollama.
-    Returns the text and the token metrics.
+    Passes the entire conversational history.
     """
     import ollama
     try:
         start_time = time.perf_counter()
-        response = ollama.chat(model='gemma4:e2b', messages=[
-          {'role': 'user', 'content': prompt}
-        ])
+        response = ollama.chat(model='gemma4:e2b', messages=chat_history)
         llm_time = time.perf_counter() - start_time
         
         return {
@@ -68,6 +63,11 @@ def main():
     total_eval_tokens = 0
     run_count = 0
     
+    # Initialize the Context Window (Memory)
+    chat_history = [
+        {'role': 'system', 'content': get_system_prompt()}
+    ]
+    
     try:
         while True:
             print("-" * 70)
@@ -85,15 +85,26 @@ def main():
             print(f"   - Elevation Change: {elevation} meters")
             print(f"   ⏱️  Sensor data collected in: {sensor_time:.5f} seconds")
             
-            # 2. Build Prompt
-            prompt = generate_prompt(pace, cadence, hr, elevation)
-            print("\n📝 2. THE EXACT PROMPT SENT TO THE LLM:")
-            print("\033[90m" + prompt + "\033[0m") # Print in grey
+            # 2. Append to Context Window
+            user_msg = generate_user_message(pace, cadence, hr, elevation)
+            chat_history.append({'role': 'user', 'content': user_msg})
+            
+            print("\n📝 2. NEW MESSAGE APPENDED TO CONTEXT:")
+            print("\033[90m" + user_msg + "\033[0m") # Print in grey
             
             # 3. LLM Result
-            print("🧠 3. LLM OUTPUT (Real Local Inference):")
-            result_data = simulate_llm_response(prompt, pace, cadence, hr, elevation)
+            print(f"🧠 3. LLM OUTPUT (Memory Size: {len(chat_history)} messages):")
+            result_data = simulate_llm_response(chat_history)
             text_response = result_data["text"]
+            
+            # Save the coach's answer to the memory!
+            chat_history.append({'role': 'assistant', 'content': text_response})
+            
+            # (Optional) Keep context window from growing infinitely to save memory
+            if len(chat_history) > 11:
+                # Remove the oldest user/assistant pair (index 1 and 2), keeping the system prompt at index 0
+                chat_history.pop(1)
+                chat_history.pop(1)
             
             print("\033[92m" + f"🗣️ Coach says: \"{text_response}\"" + "\033[0m") # Print in green
             
