@@ -1,7 +1,7 @@
 // KeyframeExtractor.swift
 // Uses Apple's Neural Engine to filter out redundant images before sending to Gemma.
 
-import Foundation
+import AVFoundation
 import UIKit
 import Vision
 
