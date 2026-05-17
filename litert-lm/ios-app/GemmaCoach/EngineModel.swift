@@ -117,7 +117,7 @@ final class EngineModel: ObservableObject {
     }
 
     /// Streaming coaching with per-chunk callback — used by LiveSession for TTS pipeline.
-    func streamCoach(history: [(role: String, content: String)], onChunk: @MainActor @escaping (String) -> Void) async {
+    func streamCoach(history: [(role: String, content: String)], image: CGImage? = nil, onChunk: @MainActor @escaping (String) -> Void) async {
         guard let llm else { status = .error("engine not loaded"); return }
         var formatted = ""
         for msg in history {
@@ -132,7 +132,7 @@ final class EngineModel: ObservableObject {
         var firstTok: Date? = nil
         var totalChars = 0
         do {
-            let stream = try await llm.stream(formatted, maxTokens: 80)
+            let stream = try await llm.stream(formatted, image: image, maxTokens: 80)
             for await chunk in stream {
                 if Task.isCancelled { break }
                 if firstTok == nil { firstTok = Date() }

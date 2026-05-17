@@ -36,6 +36,7 @@ struct ContentView: View {
             .navigationTitle("Gemma Coach")
             .task {
                 liveSession.attach(engine: engine, speaker: speaker, metrics: metricsManager)
+                visionManager.attach(liveSession: liveSession)
             }
         }
     }

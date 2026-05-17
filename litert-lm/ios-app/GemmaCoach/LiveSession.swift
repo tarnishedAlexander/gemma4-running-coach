@@ -113,8 +113,8 @@ final class LiveSession: ObservableObject {
         }
     }
 
-    /// Called instantly by the external Perception Gate (MobileCLIP + LiDAR) when a hazard is detected.
-    func fireHazardInterrupt(hazardLabel: String, depthMeters: Float, hazardScore: Float) {
+    /// Called instantly by the external Perception Gate (YOLO + ANE) when a hazard is detected.
+    func fireHazardInterrupt(hazardLabel: String, depthMeters: Float, hazardScore: Float, annotatedImage: CGImage? = nil) {
         guard isRunning else { return }
         
         // Cancel the normal running coach if she is currently speaking or thinking
@@ -123,15 +123,28 @@ final class LiveSession: ObservableObject {
         
         guard let engine = engine, engine.isReady else { return }
         
-        let urgentMessage = """
-        [CRITICAL ALERT FROM PERCEPTION GATE]
-        Local hazard gate detected:
-        - estimated distance: \(depthMeters)m
-        - top label: "\(hazardLabel)"
-        - MobileCLIP score: \(hazardScore)
-        
-        Look at the metadata and give concise safety guidance in one short sentence.
-        """
+        let urgentMessage: String
+        if annotatedImage != nil {
+            urgentMessage = """
+            [CRITICAL ALERT FROM PERCEPTION GATE]
+            Local hazard gate detected an upcoming threat. I have attached the pre-annotated camera frame where YOLO has drawn a red bounding box around the hazard.
+            - estimated distance: \(String(format: "%.1f", depthMeters))m
+            - top label: "\(hazardLabel)"
+            - MobileCLIP score: \(hazardScore)
+            
+            Look at the red bounding box in the annotated image, verify the hazard, and give the runner one short sentence of guidance. Do not say anything about the bounding box itself.
+            """
+        } else {
+            urgentMessage = """
+            [CRITICAL ALERT FROM PERCEPTION GATE]
+            Local hazard gate detected:
+            - estimated distance: \(String(format: "%.1f", depthMeters))m
+            - top label: "\(hazardLabel)"
+            - MobileCLIP score: \(hazardScore)
+            
+            Give concise safety guidance in one short sentence.
+            """
+        }
         
         if chatHistory.isEmpty {
             chatHistory.append((role: "user", content: "\(systemPrompt)\n\n\(urgentMessage)"))
@@ -144,7 +157,7 @@ final class LiveSession: ObservableObject {
         
         inflight = Task { @MainActor in
             var fullResponse = ""
-            await engine.streamCoach(history: currentHistory, onChunk: { chunk in
+            await engine.streamCoach(history: currentHistory, image: annotatedImage, onChunk: { chunk in
                 fullResponse += chunk
                 speaker?.speak(chunk: chunk)
             })
