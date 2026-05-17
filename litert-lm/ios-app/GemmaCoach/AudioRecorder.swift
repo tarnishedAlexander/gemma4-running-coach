@@ -28,7 +28,9 @@ final class AudioRecorder: NSObject, ObservableObject {
         }
 
         let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.playAndRecord, mode: .measurement, options: [.defaultToSpeaker, .allowBluetoothHFP])
+        // Using .voiceChat mode automatically activates Apple's hardware noise cancellation,
+        // echo cancellation, and voice isolation, perfect for noisy street environments!
+        try session.setCategory(.playAndRecord, mode: .voiceChat, options: [.defaultToSpeaker, .allowBluetoothHFP])
         try session.setActive(true)
 
         let url = FileManager.default.temporaryDirectory
