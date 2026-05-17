@@ -42,15 +42,65 @@ def simulate_llm(chat_history):
     except Exception as e:
         return {"text": f"[Ollama Error: {str(e)}]", "llm_time": 0, "prompt_tokens": 0, "eval_tokens": 0}
 
+def run_onboarding_interview():
+    print("\n" + "=" * 50)
+    print(" Starting Conversational Audio Onboarding...")
+    print(" (Type your answers to simulate speaking to the app)\n")
+    
+    onboarding_prompt = """You are a friendly running coach onboarding a new user. 
+Your goal is to collect exactly 3 pieces of information: their Age, their Height, and their Weight.
+Ask for one piece of information at a time in a conversational, friendly way. 
+If the user provides the information, acknowledge it and ask the next question.
+Once you have collected all 3 pieces of information, summarize what you learned in one sentence and then say exactly: 'We are ready to start running!'
+IMPORTANT: Keep your responses to one or two short spoken sentences. Do not use markdown."""
+
+    chat_history = [{'role': 'system', 'content': onboarding_prompt}]
+    
+    # Kick off the conversation
+    chat_history.append({'role': 'user', 'content': 'Hi, I just opened the app for the first time.'})
+    result = simulate_llm(chat_history)
+    text = result['text']
+    chat_history.append({'role': 'assistant', 'content': text})
+    print(f" Coach: {text}")
+    
+    extracted_profile = ""
+    
+    while True:
+        user_input = input("\n You (Type your answer): ")
+        chat_history.append({'role': 'user', 'content': user_input})
+        
+        result = simulate_llm(chat_history)
+        text = result['text']
+        chat_history.append({'role': 'assistant', 'content': text})
+        
+        print(f"\n Coach: {text}")
+        
+        # If the LLM has all the info, it will say the magic phrase to transition states
+        if "ready to start running" in text.lower() or "ready to run" in text.lower():
+            # Ask the LLM to extract the data into a clean hidden string for our system prompt
+            chat_history.append({'role': 'user', 'content': "System command: Summarize the user's age, height, and weight into one factual sentence."})
+            result = simulate_llm(chat_history)
+            extracted_profile = result['text']
+            print(f"\n [System Successfully Extracted Profile]: {extracted_profile}")
+            print("=" * 50 + "\n")
+            break
+            
+    return extracted_profile
+
 def main():
+    # 1. Run the interactive onboarding interview
+    user_profile = run_onboarding_interview()
+    
     print("+ COMBINED EMULATOR (Running Coach + Hazard Gate)\n")
     print("This simulates the exact Multi-Threaded iOS Architecture:")
     print(" - Thread 1: Camera/MobileCLIP runs every 1 second in the background.")
     print(" - Thread 2: CoreBluetooth/RunMetrics runs every 15 seconds.")
     print(" - Shared Context Window allows Gemma 4 to understand both instantly!\n")
     
-    system_prompt = """You are an elite running coach and a safety navigation assistant. 
-1. For regular running metrics, give ONE short, conversational sentence of coaching feedback. You MUST naturally include 1 or 2 of their current metrics (like their exact Heart Rate, Pace, or Cadence) in the sentence to make it personalized.
+    system_prompt = f"""You are an elite running coach and a safety navigation assistant. 
+The runner you are coaching has the following profile: {user_profile}
+
+1. For regular running metrics, give ONE short, conversational sentence of coaching feedback. You MUST naturally include 1 or 2 of their current metrics (like their exact Heart Rate, Pace, or Cadence) in the sentence to make it personalized to their profile.
 2. If a CRITICAL HAZARD alert appears, drop everything and warn them immediately. Your warning MUST be ONE sentence, and MUST explicitly state the hazard's exact distance, and either their current pace or heart rate.
 IMPORTANT: Respond ONLY with the spoken response. Do not use markdown."""
 
