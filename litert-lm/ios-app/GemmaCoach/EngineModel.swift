@@ -117,9 +117,15 @@ final class EngineModel: ObservableObject {
     }
 
     /// Streaming coaching with per-chunk callback — used by LiveSession for TTS pipeline.
-    func streamCoach(prompt: String, onChunk: @MainActor @escaping (String) -> Void) async {
+    func streamCoach(history: [(role: String, content: String)], onChunk: @MainActor @escaping (String) -> Void) async {
         guard let llm else { status = .error("engine not loaded"); return }
-        let formatted = "<start_of_turn>user\n\(prompt)<end_of_turn>\n<start_of_turn>model\n"
+        var formatted = ""
+        for msg in history {
+            // Note: If role is system, we format it as user for Gemma as Gemma does not natively support system roles
+            let role = msg.role == "system" ? "user" : msg.role
+            formatted += "<start_of_turn>\(role)\n\(msg.content)<end_of_turn>\n"
+        }
+        formatted += "<start_of_turn>model\n"
         status = .generating
         output = ""
         let start = Date()
