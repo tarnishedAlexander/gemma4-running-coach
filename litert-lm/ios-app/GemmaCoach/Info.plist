@@ -22,6 +22,8 @@
 	<string>1</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Record voice prompts for Gemma 4 coaching.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Monitor the path ahead for hazards.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Pick a photo to ask Gemma 4 about.</string>
 	<key>UIApplicationSceneManifest</key>

@@ -15,6 +15,7 @@ struct ContentView: View {
     @StateObject private var speaker = CoachSpeaker()
     @StateObject private var liveSession = LiveSession()
     @StateObject private var metricsManager = RunMetricsManager()
+    @StateObject private var visionManager = VisionManager()
 
     var body: some View {
         NavigationStack {
@@ -28,6 +29,7 @@ struct ContentView: View {
                     metricsCard
                     outputCard
                     liveCard
+                    perceptionCard
                 }
                 .padding()
             }
@@ -284,6 +286,40 @@ struct ContentView: View {
     }
 
     private var isReady: Bool { engine.isReady && !liveSession.isRunning }
+
+    private var perceptionCard: some View {
+        GroupBox("Perception Gate (Testing Phase 1)") {
+            VStack(alignment: .leading, spacing: 10) {
+                Toggle(isOn: Binding(
+                    get: { visionManager.isRunning },
+                    set: { newVal in
+                        if newVal { visionManager.startCamera() }
+                        else { visionManager.stopCamera() }
+                    }
+                )) {
+                    Label(visionManager.isRunning ? "Camera Active" : "Camera Off",
+                          systemImage: visionManager.isRunning ? "camera.viewfinder" : "camera")
+                }
+                .toggleStyle(.switch)
+                .tint(.blue)
+                
+                if visionManager.isRunning {
+                    Text("Latest Detections:")
+                        .font(.caption).foregroundStyle(.secondary)
+                    if visionManager.latestDetections.isEmpty {
+                        Text("No people detected...")
+                            .font(.caption2)
+                    } else {
+                        ForEach(visionManager.latestDetections, id: \.self) { detection in
+                            Text(detection)
+                                .font(.caption2)
+                                .foregroundStyle(.red)
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     private func handlePicked() {
         guard let item = pickedItem else { return }
