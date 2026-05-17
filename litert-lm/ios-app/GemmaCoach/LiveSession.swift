@@ -23,8 +23,9 @@ final class LiveSession: ObservableObject {
     private var chatHistory: [(role: String, content: String)] = []
     
     private let systemPrompt = """
-    You are a friendly running coach giving immediate feedback. 
-    Based on the runner's current metrics, give ONE concise sentence of feedback or encouragement. Keep it conversational.
+    You are an elite running coach and a safety navigation assistant. 
+    1. If the user provides running metrics (Heart Rate, Pace, Stride), give ONE concise sentence of coaching feedback.
+    2. If the user provides a CRITICAL HAZARD alert from the camera gate, drop everything and immediately warn them in ONE short sentence.
     IMPORTANT: Respond ONLY with the spoken sentence. Do not use any <think> blocks, markdown formatting, or chain of thought reasoning.
     """
 
@@ -102,6 +103,57 @@ final class LiveSession: ObservableObject {
             
             speaker?.flush()
             self.lastFinishedDecodeTokensPerSecond = engine.lastDecodeTokensPerSecond
+        }
+    }
+
+    /// Called instantly by the external Perception Gate (MobileCLIP + LiDAR) when a hazard is detected.
+    func fireHazardInterrupt(hazardLabel: String, depthMeters: Float, hazardScore: Float) {
+        guard isRunning else { return }
+        
+        // Cancel the normal running coach if she is currently speaking or thinking
+        inflight?.cancel()
+        speaker?.cancel()
+        
+        guard let engine = engine, engine.isReady else { return }
+        
+        let urgentMessage = """
+        [CRITICAL ALERT FROM PERCEPTION GATE]
+        Local hazard gate detected:
+        - estimated distance: \(depthMeters)m
+        - top label: "\(hazardLabel)"
+        - MobileCLIP score: \(hazardScore)
+        
+        Look at the metadata and give concise safety guidance in one short sentence.
+        """
+        
+        if chatHistory.isEmpty {
+            chatHistory.append((role: "user", content: "\(systemPrompt)\n\n\(urgentMessage)"))
+        } else {
+            chatHistory.append((role: "user", content: urgentMessage))
+        }
+        
+        let speaker = self.speaker
+        let currentHistory = chatHistory
+        
+        inflight = Task { @MainActor in
+            var fullResponse = ""
+            await engine.streamCoach(history: currentHistory, onChunk: { chunk in
+                fullResponse += chunk
+                speaker?.speak(chunk: chunk)
+            })
+            
+            // Save answer to memory
+            self.chatHistory.append((role: "model", content: fullResponse))
+            
+            // Rolling memory window
+            if self.chatHistory.count > 11 {
+                self.chatHistory.remove(at: 1)
+                self.chatHistory.remove(at: 1)
+            }
+            
+            speaker?.flush()
+            self.lastFinishedDecodeTokensPerSecond = engine.lastDecodeTokensPerSecond
+            self.lastTriggerAt = Date()
         }
     }
 
