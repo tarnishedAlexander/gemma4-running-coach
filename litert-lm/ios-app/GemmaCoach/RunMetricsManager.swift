@@ -23,8 +23,8 @@ final class RunMetricsManager: NSObject, ObservableObject, CLLocationManagerDele
     private var hrPeripheral: CBPeripheral?
     private var mockTimer: Timer?
     
-    let hrServiceUUID = CBUUID(string: "180D")
-    let hrMeasurementUUID = CBUUID(string: "2A37")
+    nonisolated let hrServiceUUID = CBUUID(string: "180D")
+    nonisolated let hrMeasurementUUID = CBUUID(string: "2A37")
     
     override init() {
         super.init()
@@ -166,21 +166,21 @@ final class RunMetricsManager: NSObject, ObservableObject, CLLocationManagerDele
     }
     
     nonisolated func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
-        peripheral.discoverServices([Task { @MainActor in self.hrServiceUUID }.value])
+        peripheral.discoverServices([hrServiceUUID])
     }
     
     // MARK: - CBPeripheralDelegate
     nonisolated func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
         guard let services = peripheral.services else { return }
         for service in services {
-            peripheral.discoverCharacteristics([Task { @MainActor in self.hrMeasurementUUID }.value], for: service)
+            peripheral.discoverCharacteristics([hrMeasurementUUID], for: service)
         }
     }
     
     nonisolated func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
         guard let characteristics = service.characteristics else { return }
         for characteristic in characteristics {
-            if characteristic.uuid == Task({ @MainActor in self.hrMeasurementUUID }).value {
+            if characteristic.uuid == hrMeasurementUUID {
                 peripheral.setNotifyValue(true, for: characteristic)
             }
         }
