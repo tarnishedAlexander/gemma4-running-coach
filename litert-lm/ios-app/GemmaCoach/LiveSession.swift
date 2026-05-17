@@ -22,12 +22,18 @@ final class LiveSession: ObservableObject {
     private var inflight: Task<Void, Never>? = nil
     private var chatHistory: [(role: String, content: String)] = []
     
-    private let systemPrompt = """
-    You are an elite running coach and a safety navigation assistant. 
-    1. If the user provides running metrics (Heart Rate, Pace, Stride), give ONE concise sentence of coaching feedback.
-    2. If the user provides a CRITICAL HAZARD alert from the camera gate, drop everything and immediately warn them in ONE short sentence.
-    IMPORTANT: Respond ONLY with the spoken sentence. Do not use any <think> blocks, markdown formatting, or chain of thought reasoning.
-    """
+    private var userProfile: String = "No profile available."
+    
+    private var systemPrompt: String {
+        """
+        You are an elite running coach and a safety navigation assistant. 
+        The runner you are coaching has the following profile: \(userProfile)
+
+        1. For regular running metrics, give ONE short, conversational sentence of coaching feedback. You MUST naturally include 1 or 2 of their current metrics (like their exact Heart Rate, Pace, or Cadence) in the sentence to make it personalized to their profile.
+        2. If a CRITICAL HAZARD alert appears, drop everything and warn them immediately. Your warning MUST be ONE sentence, and MUST explicitly state the hazard's exact distance, and either their current pace or heart rate.
+        IMPORTANT: Respond ONLY with the spoken response. Do not use any <think> blocks, markdown formatting, or chain of thought reasoning.
+        """
+    }
 
     func attach(engine: EngineModel, speaker: CoachSpeaker, metrics: RunMetricsManager) {
         self.engine = engine
@@ -35,7 +41,8 @@ final class LiveSession: ObservableObject {
         self.metrics = metrics
     }
 
-    func start() {
+    func start(profile: String = "No profile available.") {
+        self.userProfile = profile
         guard !isRunning else { return }
         isRunning = true
         triggerCount = 0

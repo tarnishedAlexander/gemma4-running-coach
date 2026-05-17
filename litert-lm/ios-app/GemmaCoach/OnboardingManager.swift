@@ -26,8 +26,17 @@ final class OnboardingManager: ObservableObject {
         self.speaker = speaker
     }
     
+    private let profileKey = "SavedUserProfile"
+    
     /// Starts the conversational loop when the app first opens
     func startOnboarding() async {
+        // If they already did the onboarding in a previous session, skip it!
+        if let savedProfile = UserDefaults.standard.string(forKey: profileKey) {
+            self.extractedProfile = savedProfile
+            self.isFinished = true
+            return
+        }
+        
         chatHistory = [
             (role: "system", content: onboardingPrompt),
             (role: "user", content: "Hi, I just opened the app for the first time.")
@@ -74,5 +83,8 @@ final class OnboardingManager: ObservableObject {
         
         self.extractedProfile = profile
         self.isFinished = true
+        
+        // Permanently save the profile to the iPhone's storage so we never have to ask again!
+        UserDefaults.standard.set(profile, forKey: profileKey)
     }
 }
