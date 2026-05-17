@@ -119,15 +119,18 @@ final class VisionManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
     
     nonisolated func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
         // This is called ~10 times per second
-        
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
         
-        let requestHandler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: .up, options: [:])
-        
-        do {
-            try requestHandler.perform([Task { @MainActor in self.humanDetectionRequest }.value])
-        } catch {
-            print("Failed to perform vision request: \(error)")
+        Task {
+            // Await the MainActor-isolated property safely
+            guard let request = await self.humanDetectionRequest else { return }
+            let requestHandler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: .up, options: [:])
+            
+            do {
+                try requestHandler.perform([request])
+            } catch {
+                print("Failed to perform vision request: \(error)")
+            }
         }
     }
 }
