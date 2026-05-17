@@ -17,7 +17,7 @@ final class LiveSession: ObservableObject {
 
     private weak var engine: EngineModel?
     private weak var speaker: CoachSpeaker?
-    private weak var metrics: RunMetricsManager?
+    weak var metrics: RunMetricsManager?
     private var loopTask: Task<Void, Never>? = nil
     private var inflight: Task<Void, Never>? = nil
     private var chatHistory: [(role: String, content: String)] = []

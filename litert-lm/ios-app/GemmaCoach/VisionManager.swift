@@ -124,19 +124,19 @@ final class VisionManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
         case .nominal:
             targetFPS = 10
             gemmaPerceptionEnabled = true
-            print("🌡️ Thermal state: nominal. Vision running at 10 FPS (Full).")
+            print("Thermal state: nominal. Vision running at 10 FPS (Full).")
         case .fair:
             targetFPS = 5
             gemmaPerceptionEnabled = true
-            print("🌡️ Thermal state: fair. Downscaled Vision to 5 FPS.")
+            print("Thermal state: fair. Downscaled Vision to 5 FPS.")
         case .serious:
             targetFPS = 2
             gemmaPerceptionEnabled = false // Disable slow path (Gemma) to save GPU energy
-            print("🌡️ Thermal state: serious! Downscaled Vision to 2 FPS. Slow-path Gemma disabled.")
+            print("Thermal state: serious! Downscaled Vision to 2 FPS. Slow-path Gemma disabled.")
         case .critical:
             targetFPS = 1
             gemmaPerceptionEnabled = false // Rely purely on local Fast Path
-            print("🌡️ Thermal state: critical! Downscaled Vision to 1 FPS. Slow-path Gemma disabled.")
+            print("Thermal state: critical! Downscaled Vision to 1 FPS. Slow-path Gemma disabled.")
         @unknown default:
             targetFPS = 10
             gemmaPerceptionEnabled = true
@@ -172,10 +172,10 @@ final class VisionManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
             
             let zone: String
             if proximityScore >= 0.7 {
-                zone = "🚨 NEAR"
+                zone = "NEAR"
                 hasNearHazard = true
             } else if proximityScore >= 0.35 {
-                zone = "⚠️ UPCOMING"
+                zone = "UPCOMING"
                 hasUpcomingHazard = true
                 currentUpcomingRects.append(obs.boundingBox)
                 
@@ -191,7 +191,7 @@ final class VisionManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
                     }
                 }
             } else {
-                zone = "✅ SAFE"
+                zone = "SAFE"
             }
             
             detections.append("Person (\(zone) - prox: \(String(format: "%.2f", proximityScore)))")
@@ -221,7 +221,7 @@ final class VisionManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
         }
         
         lastFastPathWarningTime = now
-        print("🚨 FAST PATH: Triggering immediate haptic & audio warning")
+        print("FAST PATH: Triggering immediate haptic & audio warning")
         
         // 1. Trigger heavy haptic pulse
         let generator = UIImpactFeedbackGenerator(style: .heavy)
@@ -242,7 +242,7 @@ final class VisionManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
         }
         
         lastGemmaWarningTime = now
-        print("⚠️ SLOW PATH: Alerting Gemma with annotated image...")
+        print("SLOW PATH: Alerting Gemma with annotated image...")
         
         // Trigger LiveSession multimodal slow path reasoning
         liveSession?.fireHazardInterrupt(
@@ -269,7 +269,7 @@ final class VisionManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
             captureSession?.startRunning()
             isRunning = true
             adjustFrameRateForThermalState() // Align FPS with thermals immediately on start
-            print("🎥 VisionManager Camera Session Started")
+            print("VisionManager Camera Session Started")
         }
     }
     
@@ -277,7 +277,7 @@ final class VisionManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
         guard isRunning else { return }
         captureSession?.stopRunning()
         isRunning = false
-        print("🛑 VisionManager Camera Session Stopped")
+        print("VisionManager Camera Session Stopped")
     }
     
     private func requestCameraPermission() async -> Bool {
